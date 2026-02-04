@@ -185,3 +185,62 @@ def trace_summary(
                 504: "Gateway Timeout: The upstream server failed to spend a request in time."
             }
             info = reason.get(status, "")
+            if 400 <= status < 500:
+                expl = info if info else "Client Error: The request triggered a 4xx error; the problem is typically with the client's request."
+                steps.append(f"3. **Client Error ({status})**\n   -{expl}")
+            elif 500 <= status <= 599:
+                expl = info if info else "Server Error: The request triggered a 5xx error; the problem is typically with the backend server."
+                steps.append(f"3. **Server Error ({status})**\n   - {expl}")
+            else:
+                steps.append(f"3. **Other Response:**\n   - Received status code {status} {status_text}.")
+
+            if status == 502:
+                steps.append("4. **Failure Point:**\n   - Gateway/load balancer could not reach the upstream backend or backend gave no response.")
+            elif status == 401 or status == 403:
+                steps.append("4. **Authentication Failure:**\n   - Backend or edge detected invalid or missing authentication/session.")
+            elif status == 404:
+                steps.append("4. **Resource Not Found:**\n   - The requested path or endpoint does not exist on the backend.")
+            elif status == 504 or status == 408:
+                steps.append("4. **Timeout**\n   - Communication timed out before the backend could process the request.")
+            elif status == 429:
+                steps.append("4. **Rate Limiting:**\n   - The client was sending requests too quickly.")
+            elif 500 <= status <= 599:
+                steps.append("4. **Backend:**\n   - The backend application/server returned an error.")
+            elif 400 <= status < 500:
+                steps.append("4. **Client Request Issue:**\n   - Examine your request payload, authentication, or URL for errors.")
+            else:
+                steps.append("4. **HAR Evidence:**\n   - See HAR for more context.")
+
+
+            steps.append("5. **HAR Evidence:**\n   - The HAR file documents both the request and the response with full headers, body, and status code above.")
+
+            timing_lines = []
+            for key, ms in timings.items():
+                val = ms if isinstance(ms, (int, float)) else "N/A"
+                timing_lines.append(f"   - {key}: {val}")
+            if timing_lines:
+                steps.append("**Timing Details:**\n" + "\n".join(timing_lines))
+            return "\n".join(steps)
+        narrative_lines.append(pretty_trace())
+
+        summmary = {
+            "request_id": reqid,
+            "url": url,
+            "status": f"{status} {status_text}",
+            "request_headers": request_headers,
+            "request_body": req_body,
+            "response_headers": response_headers,
+            "response_cookies": resp_cookies,
+            "timings": timings,
+            "narrative": "\n".join(narrative_lines)
+        }
+        summaries.append(summmary)
+
+    return {"summaries": summaries}
+
+if __name__ == "__main__":
+    try:
+        mcp.run(transport="stdio")
+    except Exception as exc:
+        logging.error(f"Error starting har_mcp FastMCP server: {exc}", exc_info=True)
+        sys.exit(2)
