@@ -3,7 +3,7 @@ import json
 import sys
 import logging
 import requests
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 try:
     from mcp.server.fastmcp import FastMCP
