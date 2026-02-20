@@ -119,20 +119,18 @@ def trace_summary(
     # Collect all error request ids if none specified
     all_ids = []
     if not request_ids:
-        if file_name and file_name in state.har_data:
-            har_data = state.har_data[file_name]
-            entries = har_data.get("log", {}).get("entries",[])
-            for entry in entries:
-                status = entry.get("response",{}).get("status",0)
+        if not state.har_data:
+            return {"error": "No HAR files loaded. Run import_har first."}
+        target = (
+            {file_name: state.id_map[file_name]}
+            if file_name and file_name in state.id_map
+            else state.id_map
+        )
+        for file_entries in target.values():
+            for entry_id, entry in file_entries.items():
+                status = entry.get("response", {}).get("status", 0)
                 if 400 <= status <= 599:
-                    all_ids.append(entry.get("mcp_id", ""))
-        else:
-            for har_data in state.har_data.values():
-                entries = har_data.get("log", {}).get("entries",[])
-                for entry in entries:
-                    status = entry.get("response", {}).get("status", 0)
-                    if 400 <= status <= 599:
-                        all_ids.append(entry.get("mcp_id", ""))
+                    all_ids.append(entry_id)
         request_ids = all_ids
 
     summaries = []
@@ -223,7 +221,7 @@ def trace_summary(
             return "\n".join(steps)
         narrative_lines.append(pretty_trace())
 
-        summmary = {
+        summary = {
             "request_id": reqid,
             "url": url,
             "status": f"{status} {status_text}",
@@ -234,7 +232,7 @@ def trace_summary(
             "timings": timings,
             "narrative": "\n".join(narrative_lines)
         }
-        summaries.append(summmary)
+        summaries.append(summary)
 
     return {"summaries": summaries}
 
